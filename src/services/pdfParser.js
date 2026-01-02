@@ -246,56 +246,64 @@ export const parseSyllabus = (text, courseInfo = {}) => {
   const { courseName = 'BUS254', semester = 'Fall', year = 2023 } = courseInfo;
   
   const events = [];
+  const lines = text.split('\n');
   
-  // Extract course schedule table entries
-  // Pattern for "Week X | Date | Topic" format
-  const weekPattern = /(?:Wk|Week)\s*(\d+)[^\n]*?(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*|\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2})[^\n]*?([^\n|]+)/gi;
-  
-  let match;
-  while ((match = weekPattern.exec(text)) !== null) {
-    const weekNum = match[1];
-    const dateStr = match[2];
-    const topic = match[3]?.trim() || `Week ${weekNum}`;
+  // Process each line looking for week entries
+  for (const line of lines) {
+    // Match patterns like "Week 1 | 6 Sep 2023 | Topic" or "Week 1 | Sep 6 | Topic"
+    const weekMatch = line.match(/Week\s*(\d+)\s*\|\s*(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*(?:\s+\d{4})?|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}(?:\s+\d{4})?)\s*\|\s*([^|]+)/i);
     
-    // Parse the date
-    const parsedEvents = parseEventFromText(dateStr, year);
-    if (parsedEvents.length > 0) {
-      const eventDate = parsedEvents[0].date;
+    if (weekMatch) {
+      const weekNum = weekMatch[1];
+      const dateStr = weekMatch[2];
+      let topic = weekMatch[3]?.trim() || `Week ${weekNum}`;
       
-      events.push({
-        id: `syllabus-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        title: `${courseName} - ${topic}`,
-        date: eventDate,
-        startTime: '10:30',
-        endTime: '12:20',
-        type: 'lecture',
-        description: `Week ${weekNum}: ${topic}`,
-        source: 'Syllabus Import',
-        confidence: 0.9,
-        selected: false,
-      });
+      // Clean up topic - remove chapter references and extra info
+      topic = topic.replace(/\s*\|\s*Chap.*$/i, '').trim();
+      
+      // Parse the date
+      const parsedDate = parseDateString(dateStr, year);
+      
+      if (parsedDate) {
+        // Determine if this is an exam week
+        const isExam = topic.toLowerCase().includes('exam') || 
+                       topic.toLowerCase().includes('mid-term') || 
+                       topic.toLowerCase().includes('midterm');
+        
+        events.push({
+          id: `syllabus-week${weekNum}-${Date.now()}`,
+          title: isExam ? `${courseName} - ${topic}` : `${courseName} Lecture: ${topic}`,
+          date: parsedDate,
+          startTime: '10:30',
+          endTime: '12:20',
+          type: isExam ? 'exam' : 'lecture',
+          description: `Week ${weekNum}: ${topic}`,
+          source: 'Syllabus Import',
+          confidence: 0.95,
+          selected: isExam, // Auto-select exams
+        });
+      }
     }
   }
   
-  // Look for specific exam mentions
-  if (text.toLowerCase().includes('mid-term') || text.toLowerCase().includes('midterm')) {
-    const midtermMatch = text.match(/mid-?term[^]*?(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2})/i);
-    if (midtermMatch) {
-      const parsedDates = parseEventFromText(midtermMatch[1], year);
-      if (parsedDates.length > 0) {
-        events.push({
-          id: `exam-midterm-${Date.now()}`,
-          title: `${courseName} Midterm Exam`,
-          date: parsedDates[0].date,
-          startTime: '10:30',
-          endTime: '12:20',
-          type: 'exam',
-          description: 'Midterm Examination',
-          source: 'Syllabus Import',
-          confidence: 0.95,
-          selected: true,
-        });
-      }
+  // Look for final exam mention
+  const finalExamMatch = text.match(/Final\s*Exam[:\s]*([A-Za-z]+\s+\d{4}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*)/i);
+  if (finalExamMatch) {
+    // If just month/year, use a placeholder date
+    const dateInfo = finalExamMatch[1];
+    if (dateInfo.toLowerCase().includes('december')) {
+      events.push({
+        id: `exam-final-${Date.now()}`,
+        title: `${courseName} Final Exam`,
+        date: `${year}-12-15`, // Placeholder - typically mid-December
+        startTime: '09:00',
+        endTime: '12:00',
+        type: 'exam',
+        description: 'Final Examination (exact date TBA)',
+        source: 'Syllabus Import',
+        confidence: 0.7,
+        selected: true,
+      });
     }
   }
   
@@ -306,53 +314,90 @@ export const parseSyllabus = (text, courseInfo = {}) => {
 };
 
 /**
+ * Parse a date string into YYYY-MM-DD format
+ */
+const parseDateString = (dateStr, defaultYear) => {
+  if (!dateStr) return null;
+  
+  // Try "6 Sep 2023" or "6 Sep" format
+  let match = dateStr.match(/(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*(?:\s+(\d{4}))?/i);
+  if (match) {
+    const day = parseInt(match[1]);
+    const month = parseMonth(match[2]);
+    const year = match[3] ? parseInt(match[3]) : defaultYear;
+    
+    if (month && day >= 1 && day <= 31) {
+      return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+    }
+  }
+  
+  // Try "Sep 6, 2023" or "Sep 6" format
+  match = dateStr.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s*(\d{4}))?/i);
+  if (match) {
+    const month = parseMonth(match[1]);
+    const day = parseInt(match[2]);
+    const year = match[3] ? parseInt(match[3]) : defaultYear;
+    
+    if (month && day >= 1 && day <= 31) {
+      return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+    }
+  }
+  
+  return null;
+};
+
+/**
  * Mock PDF text extraction (simulates reading PDF content)
- * In a real app, this would use a PDF parsing library
+ * In a real app, this would use a PDF parsing library like react-native-pdf-lib
+ * 
+ * This mock version returns the actual BUS254 syllabus content for demo purposes
  */
 export const extractTextFromPDF = async (uri) => {
   // Simulate processing delay
   await new Promise(resolve => setTimeout(resolve, 1500));
   
-  // For demo, return mock syllabus content similar to the BUS254 syllabus
-  // In production, you'd use react-native-pdf-lib or similar
+  // Return the actual BUS254 Fall 2023 syllabus content
+  // This matches the real PDF the user has
   return {
     success: true,
     text: `
       BUS254 Managerial Accounting - Fall 2023
+      SFU BEEDIE SCHOOL OF BUSINESS
       
-      INSTRUCTOR: Dr. Hwee Cheng Tan
+      INSTRUCTOR: Dr. Hwee Cheng Tan (Dr. Tan)
+      Email: hctan@sfu.ca
       
       D100 (Burnaby)
       Lecture: Thursday 10:30am - 12:20pm
       Venue: B9200
       
       E100 (Burnaby)  
-      Lecture: Wednesday 4:30-6:20 pm
+      Lecture: Wednesday 4:30pm - 6:20pm
       Venue: C9002
       
-      COURSE OUTLINE:
+      COURSE SCHEDULE:
       
-      Week 1 | Sep 6-7 | Intro to course, Basic cost concepts | Chap 1, Chap 2
-      Week 2 | Sep 13-14 | Preparation of manufacturing accounts, Job-order costing | Chap 2, Chap 3
-      Week 3 | Sep 20-21 | Job-order costing (II) | Chap 3
-      Week 4 | Sep 27-28 | Activity-based costing | Chap 5
-      Week 5 | Oct 4-5 | Alternative inventory costing methods | Chap 8
-      Week 6 | Oct 11-12 | Cost volume profit analysis | Chap 6
-      Week 7 | Oct 18-19 | Incremental analysis | Chap 7
-      Week 8 | Oct 25-26 | Mid-term Exam (Topics in weeks 1 to 5) | No tutorials
-      Week 9 | Nov 1-2 | Pricing | Chap 9
-      Week 10 | Nov 8-9 | Budgetary planning | Chap 10
-      Week 11 | Nov 15-16 | Budgetary control and responsibility accounting | Chap 11
-      Week 12 | Nov 22-23 | Standard cost and variance analysis | Chap 12
-      Week 13 | Nov 29-30 | Review
+      Week 1 | 6 Sep 2023 | Intro to course, Basic cost concepts | Chap 1, Chap 2 | No tutorials this week
+      Week 2 | 13 Sep 2023 | Preparation of manufacturing accounts, Job-order costing (I) | Chap 2, Chap 3 | Tutorials start, Practice round
+      Week 3 | 20 Sep 2023 | Job-order costing (II) | Chap 3 | Formal assessment begins
+      Week 4 | 27 Sep 2023 | Activity-based costing | Chap 5
+      Week 5 | 4 Oct 2023 | Alternative inventory costing methods | Chap 8
+      Week 6 | 11 Oct 2023 | Decision making: Cost volume profit analysis | Chap 6
+      Week 7 | 18 Oct 2023 | Incremental analysis | Chap 7
+      Week 8 | 25 Oct 2023 | Mid-term Exam (Topics in weeks 1 to 5) | No tutorials this week
+      Week 9 | 1 Nov 2023 | Pricing | Chap 9
+      Week 10 | 8 Nov 2023 | Budgetary planning | Chap 10
+      Week 11 | 15 Nov 2023 | Budgetary control and responsibility accounting | Chap 11
+      Week 12 | 22 Nov 2023 | Standard cost and variance analysis | Chap 12
+      Week 13 | 29 Nov 2023 | Review
       
-      Final Exam: To be announced (December)
+      Final Exam: December 2023 (Date to be announced)
       
       ASSESSMENT:
-      Homework: 8% - Due weekly at tutorials
-      Groupwork: 12%
+      Homework: 8% - Due weekly at tutorials (Best 8 submissions)
+      Groupwork in tutorials: 12% (Best 8 groupwork)
       Tutorial participation: 3%
-      Mid-term: 19% - Week 8
+      Mid-term: 19% - Week 8 (Oct 25-26)
       Final Exam: 58%
     `,
     metadata: {
