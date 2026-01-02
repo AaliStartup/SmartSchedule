@@ -1,6 +1,8 @@
 // PDF Parser Service for extracting calendar events from documents
 // This service extracts dates, exams, deadlines, and lecture schedules from course syllabi
 
+import { extractTextFromPDF as extractPDFText, parseTextForEvents } from './pdfExtractor';
+
 /**
  * Common date patterns to look for in academic documents
  */
@@ -411,15 +413,43 @@ export const extractTextFromPDF = async (uri) => {
 /**
  * Main function to process a PDF and extract calendar events
  * 
- * For demo purposes, this returns pre-extracted events from the BUS254 syllabus.
- * In production, you would integrate with a real PDF parsing service.
+ * This function:
+ * 1. First attempts real PDF text extraction
+ * 2. Parses the extracted text for dates and events
+ * 3. Falls back to demo data if extraction fails
  */
 export const processPDFForCalendar = async (uri) => {
   try {
-    // Simulate processing delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
     console.log('Processing PDF:', uri);
+    
+    // Try real PDF text extraction first
+    const extractionResult = await extractPDFText(uri);
+    
+    if (extractionResult.success && extractionResult.text && extractionResult.text.length > 100) {
+      console.log('Successfully extracted text from PDF:', extractionResult.text.substring(0, 200));
+      
+      // Parse the extracted text for events
+      const parsedEvents = parseTextForEvents(extractionResult.text, {
+        courseName: 'Course',
+        year: new Date().getFullYear(),
+      });
+      
+      if (parsedEvents.length > 0) {
+        console.log(`Found ${parsedEvents.length} events from PDF text`);
+        return {
+          success: true,
+          events: parsedEvents,
+          metadata: {
+            source: 'Real PDF Extraction',
+            extractedTextLength: extractionResult.text.length,
+          },
+          totalFound: parsedEvents.length,
+        };
+      }
+    }
+    
+    console.log('Real extraction failed or no events found, using demo data');
+    // Fall back to demo data for BUS254 syllabus
     
     // Return pre-extracted events from BUS254 Fall 2023 syllabus
     // These are the EXACT correct dates from the actual PDF
