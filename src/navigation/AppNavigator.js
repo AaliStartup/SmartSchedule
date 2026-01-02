@@ -10,6 +10,8 @@ import EventFormScreen from '../screens/EventFormScreen';
 import ConflictScreen from '../screens/ConflictScreen';
 import SuccessScreen from '../screens/SuccessScreen';
 import CalendarScreen from '../screens/CalendarScreen';
+import PDFUploadScreen from '../screens/PDFUploadScreen';
+import ExtractedEventsScreen from '../screens/ExtractedEventsScreen';
 
 import { COLORS, FONT_WEIGHTS } from '../constants/theme';
 
@@ -72,6 +74,16 @@ export default function AppNavigator() {
           name="Calendar"
           component={CalendarScreen}
           options={{ title: 'My Calendar' }}
+        />
+        <Stack.Screen
+          name="PDFUpload"
+          component={PDFUploadScreen}
+          options={{ title: 'Import PDF' }}
+        />
+        <Stack.Screen
+          name="ExtractedEvents"
+          component={ExtractedEventsScreen}
+          options={{ title: 'Review Events' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

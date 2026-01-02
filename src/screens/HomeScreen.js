@@ -39,6 +39,14 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
+  const handleImportPDF = () => {
+    navigation.navigate('PDFUpload');
+  };
+
+  const handleViewCalendar = () => {
+    navigation.navigate('Calendar');
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
@@ -73,11 +81,34 @@ export default function HomeScreen({ navigation }) {
               Upload Image
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.button, styles.pdfButton]}
+            onPress={handleImportPDF}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.buttonEmoji}>📄</Text>
+            <Text style={[styles.buttonText, styles.pdfButtonText]}>
+              Import from PDF
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Quick Actions */}
+        <View style={styles.quickActions}>
+          <TouchableOpacity
+            style={styles.quickAction}
+            onPress={handleViewCalendar}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.quickActionIcon}>📅</Text>
+            <Text style={styles.quickActionText}>View Calendar</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Works with appointment cards, schedules, and handwritten notes
+            Works with photos, images, and PDF documents like course syllabi
           </Text>
         </View>
       </View>
@@ -133,6 +164,11 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: COLORS.primary,
   },
+  pdfButton: {
+    backgroundColor: COLORS.white,
+    borderWidth: 2,
+    borderColor: COLORS.success,
+  },
   buttonEmoji: {
     fontSize: FONT_SIZES.xl,
     marginRight: SPACING.md,
@@ -146,6 +182,29 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: COLORS.primary,
+  },
+  pdfButtonText: {
+    color: COLORS.success,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: SPACING.lg,
+  },
+  quickAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+  },
+  quickActionIcon: {
+    fontSize: FONT_SIZES.md,
+    marginRight: SPACING.xs,
+  },
+  quickActionText: {
+    fontSize: FONT_SIZES.md,
+    color: COLORS.primary,
+    fontWeight: FONT_WEIGHTS.medium,
   },
   footer: {
     alignItems: 'center',

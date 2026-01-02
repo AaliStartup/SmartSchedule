@@ -10,7 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS, SHADOWS } from '../constants/theme';
 
 export default function SuccessScreen({ route, navigation }) {
-  const { eventData } = route.params || {};
+  const { eventData, bulkImport, importedCount } = route.params || {};
 
   const handleScanAnother = () => {
     navigation.navigate('Home');
@@ -19,6 +19,8 @@ export default function SuccessScreen({ route, navigation }) {
   const handleViewCalendar = () => {
     navigation.navigate('Calendar');
   };
+
+  const isBulkImport = bulkImport && importedCount > 0;
 
   const formatDate = (dateString) => {
     if (!dateString) return 'Not specified';
@@ -52,9 +54,15 @@ export default function SuccessScreen({ route, navigation }) {
         </View>
 
         {/* Title */}
-        <Text style={styles.title}>Event Added Successfully!</Text>
+        <Text style={styles.title}>
+          {isBulkImport 
+            ? `${importedCount} Events Added!` 
+            : 'Event Added Successfully!'}
+        </Text>
         <Text style={styles.subtitle}>
-          Your event has been saved to the calendar
+          {isBulkImport
+            ? 'All selected events have been saved to your calendar'
+            : 'Your event has been saved to the calendar'}
         </Text>
 
         {/* Event Summary */}
@@ -63,22 +71,33 @@ export default function SuccessScreen({ route, navigation }) {
             <View style={styles.summaryCard}>
               <Text style={styles.eventTitle}>{eventData.title || 'Untitled Event'}</Text>
               
-              <View style={styles.detailRow}>
-                <Text style={styles.detailIcon}>📅</Text>
-                <Text style={styles.detailText}>{formatDate(eventData.date)}</Text>
-              </View>
+              {!isBulkImport && (
+                <>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailIcon}>📅</Text>
+                    <Text style={styles.detailText}>{formatDate(eventData.date)}</Text>
+                  </View>
+                  
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailIcon}>🕐</Text>
+                    <Text style={styles.detailText}>
+                      {formatTime(eventData.startTime, eventData.endTime)}
+                    </Text>
+                  </View>
+                  
+                  {eventData.location && (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailIcon}>📍</Text>
+                      <Text style={styles.detailText}>{eventData.location}</Text>
+                    </View>
+                  )}
+                </>
+              )}
               
-              <View style={styles.detailRow}>
-                <Text style={styles.detailIcon}>🕐</Text>
-                <Text style={styles.detailText}>
-                  {formatTime(eventData.startTime, eventData.endTime)}
-                </Text>
-              </View>
-              
-              {eventData.location && (
+              {isBulkImport && eventData.description && (
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailIcon}>📍</Text>
-                  <Text style={styles.detailText}>{eventData.location}</Text>
+                  <Text style={styles.detailIcon}>📄</Text>
+                  <Text style={styles.detailText}>{eventData.description}</Text>
                 </View>
               )}
             </View>
